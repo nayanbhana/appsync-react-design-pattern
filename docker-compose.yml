@@ -1,0 +1,18 @@
+version: '3'
+
+services:
+  awscli:
+    image: awscli:1.16.311
+    env_file: .env
+    network_mode: bridge
+    volumes:
+      - ~/.aws:/root/.aws
+      - .:/src
+    working_dir: /src
+  node:
+    image: node:12.14.1
+    env_file: .env
+    network_mode: bridge
+    volumes:
+      - .:/src
+    working_dir: /src

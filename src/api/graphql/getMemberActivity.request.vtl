@@ -1,0 +1,19 @@
+{
+     "version" : "2017-02-28",
+    "operation" : "Query",
+    "query" : {
+        ## Provide a query expression. **
+        "expression": "partitionkey = :pk and begins_with(sortkey, :sk)",
+        "expressionValues" : {
+            ":pk" : {
+                "S" : "${context.identity.claims["custom:MemberId"]}"
+            },
+            ":sk": {
+                "S": "${ctx.args.type}"
+            }
+        }
+    },
+    ## Add 'limit' and 'nextToken' arguments to this field in your schema to implement pagination. **
+    "limit": $util.defaultIfNull(${ctx.args.limit}, 20),
+    "nextToken": $util.toJson($util.defaultIfNullOrBlank($ctx.args.nextToken, null))
+}

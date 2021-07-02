@@ -1,0 +1,138 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: AppSync API stack 
+
+
+Parameters:
+  # General
+  AppName:
+    Type: String
+    Default: cpd
+  Environment:
+    Type: String
+    Default: dev
+  CognitoPoolId:
+    Type: String
+  CognitoClientId:
+    Type: String
+  DynamoDBTableName:
+    Type: String
+  s3Pathgraphql:
+    Type: String
+  ElasticSearchEndpoint:
+    Type: String
+
+  DynamoDBReferenceTableName:
+    Type: String
+  AppSyncIAMRole:
+    Type: String
+Resources:
+ 
+  AppSyncRoleCWLogsAccess:
+    Type: AWS::IAM::Policy
+    Properties:
+      Roles:
+        - !Ref AppSyncIAMRole
+      PolicyName: AppSync-Role-CloudwatchLogs-Access
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+        - Sid: CloudwatchLogs
+          Effect: Allow
+          Action:
+            - logs:CreateLogGroup
+            - logs:CreateLogStream
+            - logs:PutLogEvents
+          Resource: 
+            - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:*"
+  
+  AppSyncRoleDynamoDBAccess:
+    Type: AWS::IAM::Policy
+    Properties:
+      Roles:
+        - !Ref AppSyncIAMRole
+      PolicyName: AppSync-Role-DynamoDB-Access
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+        - Sid: DynamoDB
+          Effect: Allow
+          Action:
+            - dynamodb:DeleteItem
+            - dynamodb:GetItem
+            - dynamodb:PutItem
+            - dynamodb:Query
+            - dynamodb:Scan
+            - dynamodb:UpdateItem
+          Resource: 
+            - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${DynamoDBTableName}/*"
+            - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${DynamoDBTableName}"
+            - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${DynamoDBReferenceTableName}/*"
+            - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${DynamoDBReferenceTableName}"
+  
+  AppSyncAPI:
+    Type: AWS::AppSync::GraphQLApi
+    Properties: 
+      AuthenticationType: AMAZON_COGNITO_USER_POOLS
+      LogConfig: 
+        CloudWatchLogsRoleArn: !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:role/${AppSyncIAMRole}'
+        ExcludeVerboseContent: True
+        FieldLogLevel: ERROR
+      Name: !Sub "${AppName}-${Environment}"
+      UserPoolConfig: 
+        AppIdClientRegex: !Ref CognitoClientId
+        AwsRegion: !Ref AWS::Region
+        DefaultAction: ALLOW
+        UserPoolId: CognitoPoolId
+
+  AppSyncDynamoDBDataSource:
+    Type: AWS::AppSync::DataSource
+    Properties: 
+      Name: !Sub "${AppName}_${Environment}_DynamoDB"
+      ApiId: !GetAtt AppSyncAPI.ApiId 
+      DynamoDBConfig: 
+        AwsRegion: !Ref AWS::Region
+        TableName: !Ref DynamoDBTableName
+        Versioned: True 
+      ServiceRoleArn: !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:role/${AppSyncIAMRole}'
+      Type: AMAZON_DYNAMODB
+
+  AppSyncGraphQLSchema:
+    Type: AWS::AppSync::GraphQLSchema
+    Properties: 
+      ApiId: !GetAtt AppSyncAPI.ApiId 
+      DefinitionS3Location: !Sub "${s3Pathgraphql}/schema.graphql"
+  
+  ResolverGetActivity:
+    Type: AWS::AppSync::Resolver
+    DependsOn: AppSyncGraphQLSchema
+    Properties:
+      ApiId: !GetAtt AppSyncAPI.ApiId
+      DataSourceName: !GetAtt AppSyncDynamoDBDataSource.Name
+      FieldName: getMemberActivity
+      RequestMappingTemplateS3Location: !Sub "${s3Pathgraphql}/getMemberActivity.request.vtl"
+      ResponseMappingTemplateS3Location: !Sub "${s3Pathgraphql}/getMemberActivity.response.vtl"
+      TypeName: Query
+  
+  ResolverSaveQuickLogActivity:
+    Type: AWS::AppSync::Resolver
+    DependsOn: AppSyncGraphQLSchema
+    Properties:
+      ApiId: !GetAtt AppSyncAPI.ApiId
+      DataSourceName: !GetAtt AppSyncDynamoDBDataSource.Name
+      FieldName: saveQuickLogActivity
+      RequestMappingTemplateS3Location: !Sub "${s3Pathgraphql}/saveQuickLogActivity.request.vtl"
+      ResponseMappingTemplateS3Location: !Sub "${s3Pathgraphql}/saveQuickLogActivity.response.vtl"
+      TypeName: Mutation
+
+Outputs:
+  AppSyncApiId:
+    Value: !GetAtt AppSyncAPI.ApiId
+    Export:
+      Name: !Join ['::', [ !Ref 'AWS::StackName', AppSyncApiId]]
+  AppSyncApiURL:
+    Value: !GetAtt AppSyncAPI.GraphQLUrl
+    Export:
+      Name: !Join ['::', [ !Ref 'AWS::StackName', AppSyncApiURL]]
+  

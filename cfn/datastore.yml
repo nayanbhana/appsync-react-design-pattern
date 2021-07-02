@@ -1,0 +1,52 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Datastore Stack - DynamoDB
+
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+  DevOpsAdminRole:
+    Type: String
+  CognitoAuthenticatedRole:
+    Type: String
+Conditions:
+  Prod: !Equals [ 'prod', !Ref Environment ]
+
+Resources:
+  memberdata:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    Properties:
+      TableName: !Sub "s0-appsync-memberdata-${Environment}"
+      AttributeDefinitions:
+        - AttributeName: "partitionkey"
+          AttributeType: "S"
+        - AttributeName: "sortkey"
+          AttributeType: "S"
+      KeySchema:
+        - AttributeName: "partitionkey"
+          KeyType: "HASH"
+        - AttributeName: "sortkey"
+          KeyType: "RANGE"
+      BillingMode: PAY_PER_REQUEST
+      SSESpecification:
+        SSEEnabled: true
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: !If
+          - Prod
+          - True
+          - False
+      StreamSpecification:
+        StreamViewType: "NEW_IMAGE"
+
+Outputs:
+  MemberDataTable:
+    Description: Name of the memberdata table
+    Value: !Ref memberdata
+    Export:
+      Name: !Sub "${AWS::StackName}::MemberDataTable"
+  MemberDataEventStream:
+    Description: Stream Arn of the memberdata table
+    Value: !GetAtt memberdata.StreamArn
+    Export:
+      Name: !Sub "${AWS::StackName}::MemberDataEventStream"

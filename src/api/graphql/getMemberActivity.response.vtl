@@ -1,0 +1,8 @@
+{
+	#foreach($item in $context.result.items)
+  		$util.qr($item.put("memberid",$item.partitionkey))
+        $util.qr($item.put("type",$item.sortkey))
+	#end
+    "items": $util.toJson($ctx.result.items),
+    "nextToken": $util.toJson($util.defaultIfNullOrBlank($context.result.nextToken, null))
+}

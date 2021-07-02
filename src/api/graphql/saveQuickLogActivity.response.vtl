@@ -1,0 +1,7 @@
+#set ($sortArray = $ctx.result.sortkey.split('#'))
+
+$util.qr($ctx.result.put("memberid",$ctx.result.partitionkey))
+$util.qr($ctx.result.put("type",$ctx.result.sortkey))
+$util.qr($ctx.result.put("guid", $sortArray.get(2)))
+
+$util.toJson($ctx.result)

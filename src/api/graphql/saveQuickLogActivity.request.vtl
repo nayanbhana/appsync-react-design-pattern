@@ -1,0 +1,11 @@
+{
+    "version" : "2017-02-28",
+    "operation" : "PutItem",
+    "key" : {        
+        "partitionkey": $util.dynamodb.toDynamoDBJson($ctx.identity.claims["custom:MemberId"]),
+        "sortkey": $util.dynamodb.toDynamoDBJson("$ctx.arguments.triennium#completed#$util.autoId()#self_recorded"),
+        "type_of_cpd": $util.dynamodb.toDynamoDBJson("CAT2"),
+        "category_number": $util.dynamodb.toDynamoDBJson("Category 2")
+    },
+    "attributeValues" : $util.dynamodb.toMapValuesJson($ctx.args)
+}

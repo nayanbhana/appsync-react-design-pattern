@@ -1,0 +1,152 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Stack for search related components
+
+
+Parameters:
+  AppName:
+    Type: String
+    Default: dev
+  ServiceName:
+    Type: String
+    Default: dev
+  Environment:
+    Type: String
+    Default: dev
+  ElasticsearchVersion:
+    Type: String
+  ESInstanceType:
+    Type: String
+
+Conditions:
+  Prod: !Equals [ 'prod', !Ref Environment ]
+
+
+Resources:
+  elasticsearchdomain:
+    Type: AWS::Elasticsearch::Domain
+    Properties: 
+      AccessPolicies: 
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              AWS: !GetAtt ESAppSyncRole.Arn
+            Action: 
+              - es:ESHttpGet
+            Resource: !Sub 'arn:${AWS::Partition}:es:${AWS::Region}:${AWS::AccountId}:domain/${AppName}-content-${Environment}/*'
+          - Effect: "Allow"
+            Principal:
+              AWS: !GetAtt ESLambdaExecutionRole.Arn
+            Action: 
+              - es:ESHttpGet
+              - es:ESHttpHead
+              - es:ESHttpPost
+              - es:ESHttpPut
+              - es:ESHttpDelete
+            Resource: !Sub 'arn:${AWS::Partition}:es:${AWS::Region}:${AWS::AccountId}:domain/${AppName}-content-${Environment}/*'
+      DomainName: !Sub "cpd-content-${Environment}"
+      EBSOptions: 
+        EBSEnabled: true
+        VolumeSize: !If
+          - Prod
+          - 100
+          - 10
+        VolumeType: !If
+          - Prod
+          - "io1"
+          - "gp2"
+      ElasticsearchClusterConfig: 
+        DedicatedMasterEnabled: !If
+          - Prod
+          - "True"
+          - "False"
+        InstanceCount: !If
+          - Prod
+          - 2
+          - 1
+        InstanceType: !Ref ESInstanceType
+        DedicatedMasterType: !If
+          - Prod 
+          - !Ref ESInstanceType
+          - !Ref AWS::NoValue
+        DedicatedMasterCount: !If 
+          - Prod
+          - 2
+          - !Ref AWS::NoValue
+      ElasticsearchVersion: !Ref ElasticsearchVersion
+      EncryptionAtRestOptions: 
+        Enabled: True
+      NodeToNodeEncryptionOptions: 
+        Enabled: True
+      SnapshotOptions: 
+        AutomatedSnapshotStartHour: !If
+          - Prod
+          - 16
+          - !Ref AWS::NoValue
+
+  ## IAM Roles
+  ESLambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName:  !Sub '${AppName}-${ServiceName}-eslambdarole-${Environment}'
+      AssumeRolePolicyDocument:
+        Statement:
+        - Effect: Allow
+          Action:
+          - sts:AssumeRole
+          Principal:
+            Service:
+            - lambda.amazonaws.com
+      ManagedPolicyArns:
+      - !Sub "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+      Policies:
+        - PolicyName: !Sub '${AppName}-${ServiceName}-eslambdapolicy-${Environment}'
+          PolicyDocument:
+            Statement:
+            - Effect: Allow
+              Action:
+                - es:ESHttpGet
+                - es:ESHttpHead
+                - es:ESHttpPost
+                - es:ESHttpPut
+                - es:ESHttpDelete
+              Resource:
+              - !Sub 'arn:${AWS::Partition}:es:${AWS::Region}:${AWS::AccountId}:domain/${AppName}-content-${Environment}/*'
+
+  ESAppSyncRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName:  !Sub '${AppName}-${ServiceName}-appsyncrole-${Environment}'
+      AssumeRolePolicyDocument:
+        Statement:
+        - Effect: Allow
+          Action:
+          - sts:AssumeRole
+          Principal:
+            Service:
+            - appsync.amazonaws.com
+      Policies:
+        - PolicyName: !Sub '${AppName}-${ServiceName}-appsyncrole-${Environment}'
+          PolicyDocument:
+            Statement:
+            - Effect: Allow
+              Action: es:ESHttpGet
+              Resource:
+              - !Sub 'arn:${AWS::Partition}:es:${AWS::Region}:${AWS::AccountId}:domain/${AppName}-content-${Environment}/*'
+
+Outputs:
+  ElasticSearchEndpoint:
+    Description: ElasticSearch Endpoint
+    Value: !GetAtt elasticsearchdomain.DomainEndpoint
+    Export:
+      Name: !Sub "${AWS::StackName}::ElasticSearchEndPoint"
+  AppSyncIAMRole:
+    Description: IAM role for appsync
+    Value: !Ref ESAppSyncRole
+    Export:
+      Name: !Sub "${AWS::StackName}::AppSyncIAMRole"
+  ESLambdaIAMRole:
+      Description: IAM role for appsync
+      Value: !Ref ESLambdaExecutionRole
+      Export:
+        Name: !Sub "${AWS::StackName}::ESLambdaIAMRole"

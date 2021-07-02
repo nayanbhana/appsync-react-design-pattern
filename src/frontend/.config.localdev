@@ -1,0 +1,9 @@
+#App
+REACT_APP_API=https://ofrfaytqpndffjk7k7xrcc2g4a.appsync-api.ap-southeast-2.amazonaws.com/graphql
+REACT_APP_WS_URL=ws://ofrfaytqpndffjk7k7xrcc2g4a.appsync-api.ap-southeast-2.amazonaws.com/graphql
+REACT_APP_ID_POOL=ap-southeast-2:017f20f8-08d0-4b17-8045-a6f2567a8f18
+REACT_APP_USER_POOL=ap-southeast-2_oYIm1Hveg
+REACT_APP_WEB_CLIENT_ID=2vq3i31tfm6d9i5s6s3la32553
+REACT_APP_COGNITO_DOMAIN=s0-dev.auth.ap-southeast-2.amazoncognito.com
+REACT_APP_SIGNIN_URL=http://localhost:3000/
+REACT_APP_SIGNOUT_URL=http://localhost:3000/

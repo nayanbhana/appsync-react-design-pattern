@@ -1,0 +1,52 @@
+﻿schema {
+  query: Query
+  mutation:Mutation
+  subscription: Subscription
+}
+
+type Query {
+  getMemberActivity(type: String!,limit: Int, nextToken: String ): memberactivitylist!
+}
+
+type Mutation {
+  saveQuickLogActivity(	
+      date: AWSDate!
+      points: Int!
+      hours: Float!
+  title:String!		
+  triennium:String!
+  type_of_activity:String!		
+      description: String
+  ): memberactivity!
+}
+
+type Subscription {
+    saveQuickLogActivity: memberactivity
+    @aws_subscribe(mutations: ["saveQuickLogActivity"])
+}
+
+type memberactivitylist {
+  items: [memberactivity]
+  nextToken: String
+}
+
+type memberactivity {
+  cpd_id: Int
+  cpr: String
+  date: AWSDate
+  description: String
+  hours: Float
+  log_id: String
+  memberid: ID!
+  organization: String
+  points: Int
+  qi: String
+  topic: String
+  title: String
+  type: String!
+  type_of_activity: String
+  category_number: String
+  guid: String
+  triennium: String
+  type_of_cpd:String
+}

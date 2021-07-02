@@ -1,0 +1,36 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: One-off bootstrap infrastructure for each environment
+
+
+Parameters:
+  # General
+  AppName:
+    Type: String
+    Default: s0
+  Environment:
+    Type: String
+    Default: dev
+
+Resources:
+
+  # Artefact storage bucket used for cpd
+  ArtefactBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub '${AWS::AccountId}-${AppName}-${Environment}-artefact-storage'
+      AccessControl: Private
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+  
+Outputs:
+  ArtefactBucketName:
+    Value: !Ref ArtefactBucket
+    Export:
+      Name: !Join ['::', [ !Ref 'AWS::StackName', ArtefactBucketName]]
+  ArtefactBucketArn:
+    Value: !GetAtt ArtefactBucket.Arn
+    Export:
+      Name: !Join ['::', [ !Ref 'AWS::StackName', ArtefactBucketArn]]

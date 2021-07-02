@@ -1,0 +1,143 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Cognito stack 
+
+Parameters:
+  env:
+    Type: String
+  userPoolName:
+    Type: String
+  clientname:
+    Type: String
+  ClientRefreshTokenValidity:
+    Type: Number
+  userpooldomainname:
+    Type: String
+  CallbackURL:
+    Type: String
+  LogoutURL:
+    Type: String
+  
+Conditions:
+  ShouldNotCreateEnvResources: !Equals [ !Ref env, NONE ]
+
+Resources:
+  UserPool:
+    Type: AWS::Cognito::UserPool
+    UpdateReplacePolicy: Retain
+    Properties:
+      UserPoolName: !Ref userPoolName
+          
+  UserPoolDomain:
+    Type: AWS::Cognito::UserPoolDomain 
+    Properties:
+        UserPoolId: !Ref UserPool 
+        Domain: !Ref userpooldomainname
+
+  UserPoolClientWeb:
+    Type: "AWS::Cognito::UserPoolClient"
+    Properties:
+      ClientName: !Join ['-',[!Ref clientname,'web',!Ref env]]
+      UserPoolId: !Ref UserPool
+      RefreshTokenValidity: !Ref ClientRefreshTokenValidity
+      AllowedOAuthFlows: 
+        - code
+      AllowedOAuthScopes:
+        - aws.cognito.signin.user.admin
+        - openid
+      CallbackURLs:
+        - !Ref CallbackURL
+      LogoutURLs:
+        - !Ref LogoutURL
+      SupportedIdentityProviders:
+        - COGNITO
+
+  UserPoolClientAppSync:
+    Type: "AWS::Cognito::UserPoolClient"
+    Properties:
+      ClientName: !Join ['-',[!Ref clientname,'appsync',!Ref env]]
+      UserPoolId: !Ref UserPool
+      RefreshTokenValidity: !Ref ClientRefreshTokenValidity
+      SupportedIdentityProviders:
+        - COGNITO
+  
+
+  IdentityPool:
+    Type: AWS::Cognito::IdentityPool
+    Properties: 
+      AllowUnauthenticatedIdentities: False
+      CognitoIdentityProviders: 
+        - ClientId:  !Ref UserPoolClientWeb
+          ProviderName: !GetAtt UserPool.ProviderName
+            # !Sub
+            # - cognito-idp.${region}.amazonaws.com/${client}
+            # - { region: !Ref "AWS::Region",  client: !Ref UserPool}
+      IdentityPoolName: !Ref userPoolName
+
+  IdentityPoolRoleMap:
+    Type: AWS::Cognito::IdentityPoolRoleAttachment
+    Properties: 
+      IdentityPoolId: !Ref IdentityPool
+      Roles:
+          unauthenticated: !GetAtt UnauthRole.Arn
+          authenticated: !GetAtt AuthRole.Arn
+    DependsOn: IdentityPool
+
+  AuthRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Join ['-',['cognito-auth-role',!Ref env]]
+      AssumeRolePolicyDocument:
+        Statement:
+        - Sid: ''
+          Effect: Allow
+          Principal:
+            Federated: cognito-identity.amazonaws.com
+          Action: sts:AssumeRoleWithWebIdentity
+          Condition:
+            ForAnyValue:StringLike:
+              cognito-identity.amazonaws.com:amr: authenticated
+            StringEquals: 
+              cognito-identity.amazonaws.com:aud: !Ref IdentityPool
+  
+  UnauthRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Join ['-',['cognito-unauth-role',!Ref env]]
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Sid: ''
+          Effect: Deny
+          Principal:
+            Federated: cognito-identity.amazonaws.com
+          Action: sts:AssumeRoleWithWebIdentity
+
+Outputs:
+  CognitoPoolID:
+    Value: !Ref UserPool 
+    Export:
+      Name: !Join ['::', [ !Ref 'AWS::StackName', UserPoolId]]
+  IdentityPoolID:
+    Value: !Ref IdentityPool 
+    Export:
+      Name: !Join ['::', [ !Ref 'AWS::StackName', IdentityPoolID]]
+  CognitoClienIDWeb:
+    Value: !Ref UserPoolClientWeb 
+    Export:
+      Name: !Join ['::', [ !Ref 'AWS::StackName', CognitoClienIDWeb]]
+  CognitoClienIDAppSync:
+    Value: !Ref UserPoolClientAppSync 
+    Export:
+      Name: !Join ['::', [ !Ref 'AWS::StackName', CognitoClienIDAppSync]]
+  CognitoDomainName:
+    Value: !Ref UserPoolDomain 
+    Export:
+      Name: !Join ['::', [ !Ref 'AWS::StackName', CognitoDomainName]]
+  CognitoAuthenticatedRole:
+    Value: !Ref AuthRole 
+    Export:
+      Name: !Join ['::', [ !Ref 'AWS::StackName', CognitoAuthenticatedRole]]
+  CognitoUnAuthenticatedRole:
+    Value: !Ref UnauthRole 
+    Export:
+      Name: !Join ['::', [ !Ref 'AWS::StackName', CognitoUnAuthenticatedRole]]    
